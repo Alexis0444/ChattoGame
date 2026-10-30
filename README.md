@@ -26,13 +26,7 @@ Cualquiera de estas tres acciones inicia la partida inmediatamente con el primer
 ## 🚀 Cómo ejecutar el juego
 
 ### Opción 1: Abrir directamente en el navegador
-Puedes hacer doble clic en el archivo [index.html](file:///c:/Users/practicanterh/Desktop/Juego%20chatto/index.html) para abrirlo en cualquier navegador (Chrome, Edge, Firefox, etc.).
 
-### Opción 2: Con servidor local (PC y Celular)
-El servidor ya corre en el puerto **`8085`**:
+  👉 [https://alexis0444.github.io/ChattoGame/]
 
-- **En esta computadora:**
-  👉 [http://localhost:8085](http://localhost:8085)
-- **En tu celular u otros dispositivos** (conectados a la misma red Wi-Fi):
-  👉 **`http://192.168.128.138:8085`**
 
