@@ -172,29 +172,73 @@
     });
   }
 
-  // Modal para móvil al perder
+  // Modal y botón flotante de Top para móvil
+  const mobileTrophyBtn = document.getElementById('mobile-trophy-btn');
+  const mobileLbModal = document.getElementById('mobile-leaderboard-modal');
+  const mobileLbCloseBtn = document.getElementById('mobile-lb-close-btn');
+  const mobileLbDismissX = document.getElementById('mobile-lb-dismiss-x');
+
+  function showMobileTrophyBtn() {
+    // Se muestra si la pantalla es móvil / estrecha
+    if (mobileTrophyBtn && window.innerWidth <= 1060) {
+      mobileTrophyBtn.classList.add('visible');
+    }
+  }
+
+  function hideMobileTrophyBtn() {
+    if (mobileTrophyBtn) {
+      mobileTrophyBtn.classList.remove('visible');
+    }
+  }
+
   function showMobileLeaderboardModal(finalScore, finalVigas) {
-    const modal = document.getElementById('mobile-leaderboard-modal');
     const scoreEl = document.getElementById('mobile-lb-final-score');
     const vigasEl = document.getElementById('mobile-lb-final-vigas');
-    if (!modal) return;
-    if (scoreEl) scoreEl.textContent = finalScore.toString();
-    if (vigasEl) vigasEl.textContent = finalVigas.toString();
+    if (!mobileLbModal) return;
+    if (scoreEl) scoreEl.textContent = (finalScore !== undefined ? finalScore : score).toString();
+    if (vigasEl) vigasEl.textContent = (finalVigas !== undefined ? finalVigas : vigasCollected).toString();
     renderLeaderboardUI();
-    modal.classList.add('active');
+    mobileLbModal.classList.add('active');
   }
 
   function hideMobileLeaderboardModal() {
-    const modal = document.getElementById('mobile-leaderboard-modal');
-    if (modal) modal.classList.remove('active');
+    if (mobileLbModal) mobileLbModal.classList.remove('active');
   }
 
-  const mobileCloseBtn = document.getElementById('mobile-lb-close-btn');
-  if (mobileCloseBtn) {
-    mobileCloseBtn.addEventListener('click', (e) => {
+  // Clic en el botón flotante del trofeo para abrir el Top
+  if (mobileTrophyBtn) {
+    mobileTrophyBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      playSound('score');
+      showMobileLeaderboardModal(score, vigasCollected);
+    });
+    mobileTrophyBtn.addEventListener('touchend', (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      playSound('score');
+      showMobileLeaderboardModal(score, vigasCollected);
+    });
+  }
+
+  // Botón "Jugar de Nuevo" en el modal
+  if (mobileLbCloseBtn) {
+    mobileLbCloseBtn.addEventListener('click', (e) => {
       e.stopPropagation();
       hideMobileLeaderboardModal();
       startGame();
+    });
+  }
+
+  // Botón "X" para solo cerrar el modal y seguir viendo la pantalla de GameOver
+  if (mobileLbDismissX) {
+    mobileLbDismissX.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideMobileLeaderboardModal();
+    });
+    mobileLbDismissX.addEventListener('touchend', (e) => {
+      e.stopPropagation();
+      hideMobileLeaderboardModal();
     });
   }
 
@@ -585,19 +629,17 @@
       localStorage.setItem('chatto_rocket_max_vigas', maxVigas.toString());
     }
 
-    // Si califica para el Top 5, pedir nombre
+    // Mostrar el botón flotante del trofeo en la esquina superior derecha
+    showMobileTrophyBtn();
+
+    // Si entraste al Top 5, abrir automáticamente el registro de récord y luego el top
     if (qualifiesForTop(score, vigasCollected)) {
       setTimeout(() => {
         promptTopRecord(score, vigasCollected);
       }, 400);
-    } else {
-      // En móvil (o pantallas menores a 1060px), mostrar el modal del top al perder
-      if (window.innerWidth <= 1060) {
-        setTimeout(() => {
-          showMobileLeaderboardModal(score, vigasCollected);
-        }, 500);
-      }
     }
+    // Si NO entró al top, NO se abre automáticamente: el usuario puede ver la pantalla
+    // de GameOver con su puntaje y tiene el botón 🏆 arriba a la derecha para abrir el Top cuando guste.
   }
 
   function resetGame() {
@@ -615,6 +657,7 @@
 
   function startGame() {
     hideMobileLeaderboardModal();
+    hideMobileTrophyBtn();
     resetGame();
     currentState = STATE.PLAYING;
     chatto.jump(); // Primer impulso instantáneo
