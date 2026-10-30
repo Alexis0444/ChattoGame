@@ -27,17 +27,21 @@
     bg: 'assets/Fondo.png',
     chattoNoFlames: 'assets/Chatto sin llamas.png',
     chattoFlames: 'assets/Chatto con llamas.png',
-    obstacle: 'assets/Obstaculo.png'
+    obstacle: 'assets/Obstaculo.png',
+    viga: 'assets/viga.png'
   };
 
   const images = {};
   let loadedCount = 0;
   const totalAssets = Object.keys(ASSET_SOURCES).length;
 
-  // Variables de puntuación y Top Récords
-  let score = 0;
+  // Variables de puntuación, vigas y Top Récords
+  let score = 0; // Distancia (parejas de obstáculos superadas)
+  let vigasCollected = 0; // Monedas/vigas recolectadas en la partida actual
   let highScore = parseInt(localStorage.getItem('chatto_rocket_high_score') || '0', 10);
   if (isNaN(highScore)) highScore = 0;
+  let maxVigas = parseInt(localStorage.getItem('chatto_rocket_max_vigas') || '0', 10);
+  if (isNaN(maxVigas)) maxVigas = 0;
 
   // Cargar lista de mejores puntajes
   function getLeaderboard() {
@@ -48,13 +52,13 @@
         if (Array.isArray(parsed) && parsed.length > 0) return parsed;
       }
     } catch (_) {}
-    // Valores predeterminados si aún no hay partidas guardadas
+    // Valores predeterminados con distancia y vigas
     return [
-      { name: 'Chatto Pro', score: 15 },
-      { name: 'Rocket Ace', score: 10 },
-      { name: 'Star Flyer', score: 6 },
-      { name: 'Cosmo Bot', score: 3 },
-      { name: 'Explorer', score: 1 }
+      { name: 'Chatto Pro', score: 18, vigas: 12 },
+      { name: 'Rocket Ace', score: 14, vigas: 9 },
+      { name: 'Star Flyer', score: 10, vigas: 6 },
+      { name: 'Cosmo Bot', score: 6, vigas: 4 },
+      { name: 'Explorer', score: 3, vigas: 2 }
     ];
   }
 
@@ -64,38 +68,47 @@
     } catch (_) {}
   }
 
-  // Verifica si un puntaje califica para el Top 5
-  function qualifiesForTop(newScore) {
-    if (newScore <= 0) return false;
+  // Verifica si un puntaje califica para el Top 5 (calculado por distancia y vigas)
+  function calcScoreWeight(s, v) {
+    return s * 100 + (v || 0) * 10;
+  }
+
+  function qualifiesForTop(newScore, newVigas) {
+    if (newScore <= 0 && newVigas <= 0) return false;
     const board = getLeaderboard();
     if (board.length < 5) return true;
-    return newScore > board[board.length - 1].score;
+    const lowest = board[board.length - 1];
+    return calcScoreWeight(newScore, newVigas) > calcScoreWeight(lowest.score, lowest.vigas || 0);
   }
 
   let pendingScore = 0;
+  let pendingVigas = 0;
   let isEnteringRecord = false;
 
-  function promptTopRecord(newScore) {
+  function promptTopRecord(newScore, newVigas) {
     const modal = document.getElementById('record-modal');
     const modalScore = document.getElementById('modal-score');
+    const modalVigas = document.getElementById('modal-vigas');
     const nameInput = document.getElementById('player-name-input');
     if (!modal || !nameInput) return;
 
     pendingScore = newScore;
+    pendingVigas = newVigas;
     isEnteringRecord = true;
     if (modalScore) modalScore.textContent = newScore.toString();
+    if (modalVigas) modalVigas.textContent = newVigas.toString();
     nameInput.value = localStorage.getItem('chatto_rocket_last_player_name') || '';
     modal.classList.add('active');
     setTimeout(() => nameInput.focus(), 150);
   }
 
-  function registerScoreWithName(playerName, finalScore) {
+  function registerScoreWithName(playerName, finalScore, finalVigas) {
     const trimmed = playerName.trim() || 'Jugador';
     localStorage.setItem('chatto_rocket_last_player_name', trimmed);
 
     const board = getLeaderboard();
-    board.push({ name: trimmed, score: finalScore });
-    board.sort((a, b) => b.score - a.score);
+    board.push({ name: trimmed, score: finalScore, vigas: finalVigas });
+    board.sort((a, b) => calcScoreWeight(b.score, b.vigas || 0) - calcScoreWeight(a.score, a.vigas || 0));
     const top5 = board.slice(0, 5);
     saveLeaderboard(top5);
     renderLeaderboardUI();
@@ -103,27 +116,34 @@
 
   function renderLeaderboardUI() {
     const listEl = document.getElementById('leaderboard-list');
+    const mobileListEl = document.getElementById('mobile-leaderboard-list');
     const bestDisplay = document.getElementById('best-score-display');
-    if (bestDisplay) bestDisplay.textContent = highScore.toString();
-    if (!listEl) return;
+    if (bestDisplay) bestDisplay.textContent = `${highScore} pts | 🏗️ ${maxVigas}`;
 
     const board = getLeaderboard();
-    listEl.innerHTML = '';
 
-    board.forEach((item, index) => {
-      const li = document.createElement('li');
-      li.className = `leaderboard-item rank-${index + 1}`;
+    const generateItemsHtml = () => {
+      return board.map((item, index) => {
+        const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}º`;
+        const vCount = item.vigas !== undefined ? item.vigas : 0;
+        return `
+          <li class="leaderboard-item rank-${index + 1}">
+            <div class="leaderboard-rank">
+              <span class="rank-badge">${medal}</span>
+              <span class="player-name">${escapeHtml(item.name)}</span>
+            </div>
+            <div class="leaderboard-scores">
+              <span class="score-tag dist" title="Distancia">🎯 ${item.score}</span>
+              <span class="score-tag vigas" title="Vigas">🏗️ ${vCount}</span>
+            </div>
+          </li>
+        `;
+      }).join('');
+    };
 
-      const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}º`;
-      li.innerHTML = `
-        <div class="leaderboard-rank">
-          <span class="rank-badge">${medal}</span>
-          <span class="player-name">${escapeHtml(item.name)}</span>
-        </div>
-        <span class="leaderboard-pts">${item.score} <small style="font-size:0.7rem; color:#94a3b8;">pts</small></span>
-      `;
-      listEl.appendChild(li);
-    });
+    const itemsHtml = generateItemsHtml();
+    if (listEl) listEl.innerHTML = itemsHtml;
+    if (mobileListEl) mobileListEl.innerHTML = itemsHtml;
   }
 
   function escapeHtml(str) {
@@ -140,10 +160,41 @@
       const nameInput = document.getElementById('player-name-input');
       const modal = document.getElementById('record-modal');
       const enteredName = nameInput ? nameInput.value : 'Jugador';
-      registerScoreWithName(enteredName, pendingScore);
+      registerScoreWithName(enteredName, pendingScore, pendingVigas);
       if (modal) modal.classList.remove('active');
       isEnteringRecord = false;
       gameOverTime = performance.now(); // reset cooldown tras guardar
+
+      // Si estamos en pantalla móvil, mostrar ahora el top completo
+      if (window.innerWidth <= 1060) {
+        showMobileLeaderboardModal(pendingScore, pendingVigas);
+      }
+    });
+  }
+
+  // Modal para móvil al perder
+  function showMobileLeaderboardModal(finalScore, finalVigas) {
+    const modal = document.getElementById('mobile-leaderboard-modal');
+    const scoreEl = document.getElementById('mobile-lb-final-score');
+    const vigasEl = document.getElementById('mobile-lb-final-vigas');
+    if (!modal) return;
+    if (scoreEl) scoreEl.textContent = finalScore.toString();
+    if (vigasEl) vigasEl.textContent = finalVigas.toString();
+    renderLeaderboardUI();
+    modal.classList.add('active');
+  }
+
+  function hideMobileLeaderboardModal() {
+    const modal = document.getElementById('mobile-leaderboard-modal');
+    if (modal) modal.classList.remove('active');
+  }
+
+  const mobileCloseBtn = document.getElementById('mobile-lb-close-btn');
+  if (mobileCloseBtn) {
+    mobileCloseBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      hideMobileLeaderboardModal();
+      startGame();
     });
   }
 
@@ -193,6 +244,16 @@
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.22);
         osc.start(now);
         osc.stop(now + 0.22);
+      } else if (type === 'coin') {
+        // Sonido de recolección de viga / moneda espacial
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(620, now);
+        osc.frequency.setValueAtTime(940, now + 0.06);
+        osc.frequency.setValueAtTime(1260, now + 0.12);
+        gain.gain.setValueAtTime(0.28, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.24);
+        osc.start(now);
+        osc.stop(now + 0.24);
       } else if (type === 'hit') {
         // Sonido de colisión
         osc.type = 'triangle';
@@ -307,6 +368,58 @@
     }
   };
 
+  // --- MONEDAS VIGA COLECCIONABLES ---
+  let beams = [];
+  const BEAM_SIZE = 72; // Tamaño aumentado de la viga (un poquito más grande y llamativa)
+  let obstaclePairCount = 0; // Contador de parejas generadas para alternar ("uno sí, uno no")
+
+  class BeamItem {
+    constructor(x, y) {
+      this.x = x;
+      this.y = y;
+      this.baseY = y;
+      this.width = BEAM_SIZE;
+      this.height = BEAM_SIZE;
+      this.collected = false;
+      this.bobbingAngle = Math.random() * Math.PI * 2;
+      this.spinAngle = 0;
+    }
+
+    update(dt) {
+      this.x -= currentSpeed * dt;
+      this.bobbingAngle += dt * 3.5;
+      this.y = this.baseY + Math.sin(this.bobbingAngle) * 8; // Efecto flotante suave
+      this.spinAngle += dt * 2.5; // Efecto rotativo sutil
+    }
+
+    draw() {
+      if (this.collected) return;
+      const img = images.viga;
+      if (!img) return;
+
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      // Brillo dorado / resplandor alrededor de la viga
+      ctx.shadowColor = '#f59e0b';
+      ctx.shadowBlur = 14;
+
+      // Dibujar viga perfectamente centrada con sutil escala pulsante
+      const pulse = 1 + Math.sin(this.bobbingAngle * 1.5) * 0.08;
+      ctx.scale(pulse, pulse);
+      ctx.drawImage(img, -this.width / 2, -this.height / 2, this.width, this.height);
+      ctx.restore();
+    }
+
+    collidesWith(circle) {
+      if (this.collected) return false;
+      // Colisión circular entre Chatto y la viga
+      const radius = this.width * 0.44;
+      const dx = circle.cx - this.x;
+      const dy = circle.cy - this.y;
+      return (dx * dx + dy * dy) < Math.pow(circle.r + radius, 2);
+    }
+  }
+
   // --- OBSTÁCULOS ---
   const OBSTACLE_WIDTH = 180;   // Ancho sustancialmente más robusto
   const GAP_HEIGHT = 185;       // Espacio vertical para cruzar cómodamente
@@ -326,6 +439,20 @@
       this.gapCenterY = Math.floor(minCenter + Math.random() * (maxCenter - minCenter));
       this.gapHeight = GAP_HEIGHT;
       this.passed = false;
+
+      obstaclePairCount++;
+
+      // Alternancia: uno sí, uno no (en los pares impares)
+      // La viga se genera en la línea central exacta (punto medio horizontal)
+      // entre el obstáculo de la izquierda y el obstáculo de la derecha.
+      // Eje X central = centro del obstáculo actual - mitad de la distancia entre columnas
+      // Esto asegura que quede matemáticamente en la línea roja central entre ambas columnas.
+      if (obstaclePairCount % 2 === 1 && obstaclePairCount > 1) {
+        const exactMidlineX = (this.x + this.width / 2) - (PIPE_SPACING / 2);
+        // Altura aleatoria a lo largo de esa línea vertical central (entre 200 y 500 px)
+        const randomY = Math.floor(200 + Math.random() * 300);
+        beams.push(new BeamItem(exactMidlineX, randomY));
+      }
     }
 
     get topHeight() {
@@ -398,7 +525,6 @@
       const visibleRight = this.x + this.width * 0.705;
 
       // Obstáculo superior (invertido): la punta del tubo queda en topHeight
-      // En el asset, la punta tiene un pequeño margen transparente superior (~4%)
       if (this.topHeight > 0) {
         const solidTop = 0;
         const solidBottom = this.topHeight - (this.width * 0.04);
@@ -454,18 +580,33 @@
     gameOverTime = performance.now();
     playSound('hit');
 
-    // Si el jugador entra al Top 5, solicitar su nombre
-    if (qualifiesForTop(score)) {
+    if (vigasCollected > maxVigas) {
+      maxVigas = vigasCollected;
+      localStorage.setItem('chatto_rocket_max_vigas', maxVigas.toString());
+    }
+
+    // Si califica para el Top 5, pedir nombre
+    if (qualifiesForTop(score, vigasCollected)) {
       setTimeout(() => {
-        promptTopRecord(score);
+        promptTopRecord(score, vigasCollected);
       }, 400);
+    } else {
+      // En móvil (o pantallas menores a 1060px), mostrar el modal del top al perder
+      if (window.innerWidth <= 1060) {
+        setTimeout(() => {
+          showMobileLeaderboardModal(score, vigasCollected);
+        }, 500);
+      }
     }
   }
 
   function resetGame() {
     chatto.reset();
     obstacles = [];
+    beams = [];
     score = 0;
+    vigasCollected = 0;
+    obstaclePairCount = 0;
     currentSpeed = BASE_SPEED;
     obstacleTimer = 0;
     // Spawn primer obstáculo más adelante
@@ -473,6 +614,7 @@
   }
 
   function startGame() {
+    hideMobileLeaderboardModal();
     resetGame();
     currentState = STATE.PLAYING;
     chatto.jump(); // Primer impulso instantáneo
@@ -494,6 +636,10 @@
     } else if (currentState === STATE.PLAYING) {
       chatto.jump();
     } else if (currentState === STATE.GAMEOVER) {
+      // Si el modal de móvil está activo, no reiniciar por toque al canvas
+      const mobileModal = document.getElementById('mobile-leaderboard-modal');
+      if (mobileModal && mobileModal.classList.contains('active')) return;
+
       // Cooldown de seguridad para no reiniciar por accidente
       if (now - gameOverTime > RESTART_COOLDOWN_MS) {
         startGame();
@@ -550,12 +696,12 @@
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffffff';
       ctx.font = '900 44px "Outfit", sans-serif';
-      ctx.fillText('CHATTO ROCKET', GAME_WIDTH / 2, 170);
+      ctx.fillText('CHATTO ROCKET', GAME_WIDTH / 2, 160);
 
       // Subtítulo con color acento
       ctx.fillStyle = '#ffb300';
       ctx.font = '600 16px "Outfit", sans-serif';
-      ctx.fillText('¡Evita los obstáculos y vuela alto!', GAME_WIDTH / 2, 205);
+      ctx.fillText('¡Evita los obstáculos y recolecta vigas!', GAME_WIDTH / 2, 195);
 
       // Tarjeta de inicio semitransparente
       ctx.save();
@@ -571,35 +717,45 @@
       // Instrucción principal
       ctx.fillStyle = '#ffffff';
       ctx.font = '700 18px "Outfit", sans-serif';
-      ctx.fillText('Presiona ESPACIO o haz clic', GAME_WIDTH / 2, 500);
+      ctx.fillText('Presiona ESPACIO o haz clic', GAME_WIDTH / 2, 495);
 
       ctx.fillStyle = '#cbd5e1';
       ctx.font = '400 14px "Outfit", sans-serif';
-      ctx.fillText('o toca la pantalla para comenzar', GAME_WIDTH / 2, 526);
+      ctx.fillText('o toca la pantalla para comenzar', GAME_WIDTH / 2, 520);
 
-      // Récord
+      // Récord con distancia y vigas
       ctx.fillStyle = '#fbbf24';
-      ctx.font = '800 17px "Outfit", sans-serif';
-      ctx.fillText(`🏆 Mejor Récord: ${highScore}`, GAME_WIDTH / 2, 595);
+      ctx.font = '800 16px "Outfit", sans-serif';
+      ctx.fillText(`🏆 Mejor: ${highScore} pts | 🏗️ ${maxVigas} vigas`, GAME_WIDTH / 2, 595);
 
     } else if (currentState === STATE.PLAYING) {
-      // Puntuación grande y clara arriba en el centro
+      // Puntuación grande y clara arriba en el centro (distancia)
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ffffff';
-      ctx.font = '900 52px "Outfit", sans-serif';
-      ctx.fillText(score.toString(), GAME_WIDTH / 2, 85);
+      ctx.font = '900 48px "Outfit", sans-serif';
+      ctx.fillText(score.toString(), GAME_WIDTH / 2, 75);
+
+      // Contador de vigas en la parte superior izquierda con miniatura de la viga
+      ctx.textAlign = 'left';
+      const vigaImg = images.viga;
+      if (vigaImg) {
+        ctx.drawImage(vigaImg, 20, 30, 30, 30);
+      }
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = '900 22px "Outfit", sans-serif';
+      ctx.fillText(`x ${vigasCollected}`, 56, 53);
 
       // Récord pequeño arriba a la derecha
       ctx.textAlign = 'right';
-      ctx.fillStyle = '#fbbf24';
-      ctx.font = '700 16px "Outfit", sans-serif';
-      ctx.fillText(`🏆 ${highScore}`, GAME_WIDTH - 24, 45);
+      ctx.fillStyle = '#94a3b8';
+      ctx.font = '700 15px "Outfit", sans-serif';
+      ctx.fillText(`🏆 ${highScore}`, GAME_WIDTH - 20, 52);
 
     } else if (currentState === STATE.GAMEOVER) {
       // Banner de Fin de Partida
       ctx.save();
-      ctx.fillStyle = 'rgba(5, 8, 18, 0.72)';
-      roundRect(ctx, 35, 170, GAME_WIDTH - 70, 370, 20);
+      ctx.fillStyle = 'rgba(5, 8, 18, 0.75)';
+      roundRect(ctx, 35, 150, GAME_WIDTH - 70, 395, 20);
       ctx.fill();
       ctx.strokeStyle = 'rgba(239, 68, 68, 0.5)';
       ctx.lineWidth = 2;
@@ -608,29 +764,33 @@
 
       ctx.textAlign = 'center';
       ctx.fillStyle = '#ef4444';
-      ctx.font = '900 38px "Outfit", sans-serif';
-      ctx.fillText('¡Fin de la partida!', GAME_WIDTH / 2, 235);
+      ctx.font = '900 36px "Outfit", sans-serif';
+      ctx.fillText('¡Fin de la partida!', GAME_WIDTH / 2, 210);
 
-      // Puntuación obtenida
+      // Puntuación obtenida (Distancia y Vigas)
       ctx.fillStyle = '#94a3b8';
-      ctx.font = '600 15px "Outfit", sans-serif';
-      ctx.fillText('PUNTUACIÓN', GAME_WIDTH / 2, 285);
+      ctx.font = '600 14px "Outfit", sans-serif';
+      ctx.fillText('RESULTADOS', GAME_WIDTH / 2, 250);
 
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '900 48px "Outfit", sans-serif';
-      ctx.fillText(score.toString(), GAME_WIDTH / 2, 335);
+      ctx.fillStyle = '#38bdf8';
+      ctx.font = '900 32px "Outfit", sans-serif';
+      ctx.fillText(`🎯 ${score} pts`, GAME_WIDTH / 2, 290);
+
+      ctx.fillStyle = '#fbbf24';
+      ctx.font = '900 30px "Outfit", sans-serif';
+      ctx.fillText(`🏗️ ${vigasCollected} vigas`, GAME_WIDTH / 2, 332);
 
       // Mejor récord
-      ctx.fillStyle = '#fbbf24';
-      ctx.font = '800 20px "Outfit", sans-serif';
-      ctx.fillText(`🏆 Récord: ${highScore}`, GAME_WIDTH / 2, 385);
+      ctx.fillStyle = '#cbd5e1';
+      ctx.font = '800 17px "Outfit", sans-serif';
+      ctx.fillText(`🏆 Récords: ${highScore} pts | 🏗️ ${maxVigas}`, GAME_WIDTH / 2, 385);
 
       // Indicación de reinicio
       ctx.fillStyle = '#38bdf8';
       ctx.font = '700 16px "Outfit", sans-serif';
-      ctx.fillText('Presiona ESPACIO, haz clic', GAME_WIDTH / 2, 460);
+      ctx.fillText('Presiona ESPACIO, haz clic', GAME_WIDTH / 2, 455);
       ctx.font = '500 14px "Outfit", sans-serif';
-      ctx.fillText('o toca para reiniciar', GAME_WIDTH / 2, 485);
+      ctx.fillText('o toca para reiniciar', GAME_WIDTH / 2, 480);
     }
 
     // Resetear sombras
@@ -659,13 +819,14 @@
       // Actualizar Chatto
       chatto.update(dt);
 
-      // Actualizar y generar obstáculos
       const cBox = chatto.getCollisionBox();
+
+      // Actualizar y generar obstáculos
       for (let i = obstacles.length - 1; i >= 0; i--) {
         const obs = obstacles[i];
         obs.update(dt);
 
-        // Comprobar colisión
+        // Comprobar colisión con obstáculo
         if (obs.collidesWith(cBox)) {
           triggerGameOver();
         }
@@ -673,6 +834,24 @@
         // Eliminar obstáculo que sale por la izquierda
         if (obs.x + obs.width < -20) {
           obstacles.splice(i, 1);
+        }
+      }
+
+      // Actualizar y recolectar vigas
+      for (let i = beams.length - 1; i >= 0; i--) {
+        const b = beams[i];
+        b.update(dt);
+
+        // Colisión / recolección con Chatto
+        if (!b.collected && b.collidesWith(cBox)) {
+          b.collected = true;
+          vigasCollected++;
+          playSound('coin');
+        }
+
+        // Eliminar si sale de pantalla o si ya fue recolectada
+        if (b.x + b.width < -30 || (b.collected && b.x < chatto.x - 50)) {
+          beams.splice(i, 1);
         }
       }
 
@@ -697,10 +876,17 @@
       }
     }
 
-    // 3. Personaje Chatto
+    // 3. Monedas Viga (delante de los obstáculos y fondo)
+    if (currentState === STATE.PLAYING || currentState === STATE.GAMEOVER) {
+      for (const beam of beams) {
+        beam.draw();
+      }
+    }
+
+    // 4. Personaje Chatto
     chatto.draw();
 
-    // 4. Interfaces y textos
+    // 5. Interfaces y textos
     drawUI();
 
     requestAnimationFrame(gameLoop);

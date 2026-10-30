@@ -9,7 +9,9 @@ Videojuego 2D inspirado en Flappy Bird desarrollado en **HTML5 Canvas, CSS3 y Ja
 3. **`assets/Obstaculo.png`**:
    - **Inferior**: Orientación original, alineado con el fondo del juego.
    - **Superior**: Mismo asset volteado verticalmente usando `ctx.scale(1, -1)`.
-4. **`assets/Fondo.png`**: Fondo visual único y auténtico, ajustado proporcionalmente detrás de todos los elementos en inicio, juego y fin de partida.
+4. **`assets/viga.png`**: Objeto coleccionable tipo moneda espacial que aparece entre los obstáculos.
+5. **`assets/robot-chubby-laptop-dark.png`**: Personaje decorativo animado en el lateral izquierdo para pantallas amplias.
+6. **`assets/Fondo.png`**: Fondo visual único y auténtico, ajustado proporcionalmente detrás de todos los elementos en inicio, juego y fin de partida.
 
 ---
 
@@ -26,7 +28,13 @@ Cualquiera de estas tres acciones inicia la partida inmediatamente con el primer
 ## 🚀 Cómo ejecutar el juego
 
 ### Opción 1: Abrir directamente en el navegador
+Puedes hacer doble clic en el archivo [index.html](file:///c:/Users/practicanterh/Desktop/Juego%20chatto/index.html) para abrirlo en cualquier navegador (Chrome, Edge, Firefox, etc.).
 
-  👉 [https://alexis0444.github.io/ChattoGame/]
+### Opción 2: Con servidor local (PC y Celular)
+El servidor ya corre en el puerto **`8085`**:
 
+- **En esta computadora:**
+  👉 [http://localhost:8085](http://localhost:8085)
+- **En tu celular u otros dispositivos** (conectados a la misma red Wi-Fi):
+  👉 **`http://192.168.128.138:8085`**
 

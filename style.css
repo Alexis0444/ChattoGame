@@ -430,6 +430,83 @@ html, body {
   transform: translateY(0);
 }
 
+.leaderboard-scores {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.score-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-weight: 800;
+  font-size: 0.88rem;
+}
+
+.score-tag.dist {
+  color: #38bdf8;
+}
+
+.score-tag.vigas {
+  color: #fbbf24;
+}
+
+.mobile-lb-card {
+  max-width: 400px;
+  width: 90%;
+  padding: 22px 18px;
+}
+
+.mobile-lb-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-height: 280px;
+  overflow-y: auto;
+  margin-bottom: 14px;
+}
+
+.mobile-lb-stats {
+  display: flex;
+  justify-content: space-around;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 10px 12px;
+  margin-bottom: 14px;
+  font-size: 0.92rem;
+  color: #cbd5e1;
+}
+
+.mobile-lb-stats strong {
+  font-size: 1.1rem;
+}
+
+.modal-btn-action {
+  background: linear-gradient(90deg, #f59e0b, #ea580c);
+  color: #ffffff;
+  border: none;
+  border-radius: 12px;
+  padding: 13px 20px;
+  font-size: 1rem;
+  font-weight: 800;
+  cursor: pointer;
+  font-family: 'Outfit', sans-serif;
+  width: 100%;
+  box-shadow: 0 4px 15px rgba(234, 88, 12, 0.4);
+  transition: transform 0.15s ease, filter 0.15s ease;
+}
+
+.modal-btn-action:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+.modal-btn-action:active {
+  transform: translateY(0);
+}
+
 @media (max-width: 1060px) {
   #side-left-decor, #side-right-leaderboard {
     display: none;
@@ -442,5 +519,9 @@ html, body {
     max-height: 100%;
     box-shadow: none;
     border-radius: 0;
+  }
+  .leaderboard-item {
+    padding: 7px 10px;
+    font-size: 0.85rem;
   }
 }
