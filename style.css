@@ -31,6 +31,8 @@ html, body {
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.7);
   overflow: hidden;
   background: #0b0f19;
+  contain: layout size;
+  transform: translateZ(0);
 }
 
 #gameCanvas {
@@ -40,6 +42,11 @@ html, body {
   object-fit: contain;
   background-color: #0b0f19;
   cursor: pointer;
+  touch-action: none;
+  -webkit-touch-callout: none;
+  transform: translateZ(0);
+  will-change: contents;
+  image-rendering: -webkit-optimize-contrast;
 }
 
 .overlay {

@@ -1,9 +1,9 @@
 (() => {
   'use strict';
 
-  // Canvas y contexto
+  // Canvas y contexto 2D optimizado para GPU móvil (alpha: false evita mezclas transparentes del canvas con el fondo)
   const canvas = document.getElementById('gameCanvas');
-  const ctx = canvas.getContext('2d');
+  const ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
   const loadingOverlay = document.getElementById('loading-overlay');
   const loadingText = document.getElementById('loading-text');
 
@@ -443,9 +443,6 @@
 
       ctx.save();
       ctx.translate(this.x, this.y);
-      // Brillo dorado / resplandor alrededor de la viga
-      ctx.shadowColor = '#f59e0b';
-      ctx.shadowBlur = 14;
 
       // Dibujar viga perfectamente centrada con sutil escala pulsante
       const pulse = 1 + Math.sin(this.bobbingAngle * 1.5) * 0.08;
@@ -598,23 +595,33 @@
     return (dx * dx + dy * dy) < (r * r);
   }
 
-  // --- FONDO ESTABLE (ORIGINAL) ---
-  function drawBackground() {
-    const bg = images.bg;
-    if (!bg) {
-      ctx.fillStyle = '#0b0f19';
-      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
-      return;
-    }
+  // --- FONDO OPTIMIZADO (PRE-RENDERIZADO EN OFFSCREEN CANVAS) ---
+  let bgOffscreenCanvas = null;
 
-    // Cubrir el canvas proporcionalmente (cover) conservando relación de aspecto y centrado
+  function initBackgroundCache() {
+    const bg = images.bg;
+    if (!bg) return;
+    bgOffscreenCanvas = document.createElement('canvas');
+    bgOffscreenCanvas.width = GAME_WIDTH;
+    bgOffscreenCanvas.height = GAME_HEIGHT;
+    const bgCtx = bgOffscreenCanvas.getContext('2d', { alpha: false });
+    
     const scale = Math.max(GAME_WIDTH / bg.width, GAME_HEIGHT / bg.height);
     const sw = GAME_WIDTH / scale;
     const sh = GAME_HEIGHT / scale;
     const sx = (bg.width - sw) / 2;
     const sy = (bg.height - sh) / 2;
+    bgCtx.drawImage(bg, sx, sy, sw, sh, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+  }
 
-    ctx.drawImage(bg, sx, sy, sw, sh, 0, 0, GAME_WIDTH, GAME_HEIGHT);
+  function drawBackground() {
+    if (bgOffscreenCanvas) {
+      // Copia ultra rápida 1:1 directa en GPU (sin recalcular matrices, escalas ni recortes cada frame)
+      ctx.drawImage(bgOffscreenCanvas, 0, 0);
+    } else {
+      ctx.fillStyle = '#0b0f19';
+      ctx.fillRect(0, 0, GAME_WIDTH, GAME_HEIGHT);
+    }
   }
 
   // --- REINICIO Y FIN DE PARTIDA ---
@@ -966,6 +973,7 @@
 
   // INICIO
   loadAssets(() => {
+    initBackgroundCache();
     loadingOverlay.classList.remove('visible');
     renderLeaderboardUI();
     currentState = STATE.START;
